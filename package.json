@@ -31,12 +31,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/trackit-io/di-container.git"
+    "url": "git+https://github.com/trackit/di-container.git"
   },
   "bugs": {
-    "url": "https://github.com/trackit-io/di-container/issues"
+    "url": "https://github.com/trackit/di-container/issues"
   },
-  "homepage": "https://github.com/trackit-io/di-container#readme",
+  "homepage": "https://github.com/trackit/di-container#readme",
   "engines": {
     "node": ">=16"
   },

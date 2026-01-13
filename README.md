@@ -50,8 +50,8 @@ register(NumberGetterToken, { useClass: OneGetter });
 // When you want to directly provide an instance and possibly provide configuration to the constructor, use useValue:
 register(NumberGetterToken, { useValue: new OneGetter() });
 
-// When you want each injection to provide a new instance, use useFactory:
-register(NumberGetterToken, { useFactory: () => new OneGetter() });
+// When you need to control how the instance is created (e.g., external clients with config), use useFactory:
+register(DynamoDBClientToken, { useFactory: () => new DynamoDBClient({ region: 'eu-west-1' }) });
 ```
 
 Please note, if a dependency is re-registered, it will throw an exception. Dependencies are not allowed to be overridden.
@@ -63,7 +63,7 @@ Once the dependency is registered, you can retrieve it using the `inject` functi
 ```typescript
 import { inject } from '@trackit.io/di-container';
 
-const getter = inject<NumberGetter>(NumberGetterToken);
+const getter = inject(NumberGetterToken);
 
 const number = getter.getNumber(); // 1, assuming OneGetter is registered
 ```
