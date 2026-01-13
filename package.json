@@ -26,6 +26,9 @@
   ],
   "author": "Trackit.io",
   "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/trackit-io/di-container.git"
