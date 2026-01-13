@@ -1,11 +1,11 @@
-# @trackit/di-container
+# @trackit.io/di-container
 
 A typesafe dependency injection container implemented as a wrapper around Tsyringe, designed for ease of use and better control over your application's dependencies.
 
 ## Installation
 
 ```bash
-npm install @trackit/di-container
+npm install @trackit.io/di-container
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install @trackit/di-container
 Define a type that you want to inject, and create a token for it. The token is used to register and retrieve the dependency.
 
 ```typescript
-import { createInjectionToken } from '@trackit/di-container';
+import { createInjectionToken } from '@trackit.io/di-container';
 
 type NumberGetter = {
   getNumber: () => number;
@@ -41,7 +41,7 @@ After defining the token and the implementation, you can register the dependency
 Here's how to register the dependency:
 
 ```typescript
-import { register } from '@trackit/di-container';
+import { register } from '@trackit.io/di-container';
 
 // For classes that you define yourself, you should use useClass:
 register(NumberGetterToken, { useClass: OneGetter });
@@ -60,7 +60,7 @@ Please note, if a dependency is re-registered, it will throw an exception. Depen
 Once the dependency is registered, you can retrieve it using the `inject` function:
 
 ```typescript
-import { inject } from '@trackit/di-container';
+import { inject } from '@trackit.io/di-container';
 
 const getter = inject(NumberGetterToken);
 
@@ -72,7 +72,7 @@ const number = getter.getNumber(); // 1, assuming OneGetter is registered
 You can clear the container of all registered dependencies using the `reset` function.
 
 ```typescript
-import { reset } from '@trackit/di-container';
+import { reset } from '@trackit.io/di-container';
 
 reset();
 ```
@@ -82,7 +82,7 @@ reset();
 The CompositionRoot pattern centralizes all dependency registrations in one place, making it easy to swap implementations for testing or different environments.
 
 ```typescript
-import { register, reset } from '@trackit/di-container';
+import { register, reset } from '@trackit.io/di-container';
 import { RecipeRepositoryToken } from './core/ports/RecipeRepository';
 import { DynamoDbRecipeRepository } from './infrastructure/DynamoDbRecipeRepository';
 import { InMemoryRecipeRepository } from './infrastructure/InMemoryRecipeRepository';
@@ -112,7 +112,7 @@ beforeEach(() => {
 Use a `setup` function to encapsulate container reset, test registrations, and return both the system under test and its dependencies for assertions.
 
 ```typescript
-import { reset, register, inject, createInjectionToken } from '@trackit/di-container';
+import { reset, register, inject, createInjectionToken } from '@trackit.io/di-container';
 import { EventPublisherToken } from './core/ports/EventPublisher';
 import { InMemoryEventPublisher } from './infrastructure/InMemoryEventPublisher';
 import { CreateRecipeUseCase } from './core/useCases/CreateRecipeUseCase';
@@ -179,8 +179,8 @@ This pattern provides:
 When you only need to import types (for type annotations), use `import type` for better tree-shaking:
 
 ```typescript
-import { inject, register, createInjectionToken } from '@trackit/di-container';
-import type { Token, Provider, Factory } from '@trackit/di-container';
+import { inject, register, createInjectionToken } from '@trackit.io/di-container';
+import type { Token, Provider, Factory } from '@trackit.io/di-container';
 ```
 
 ## Building classes
@@ -190,7 +190,7 @@ When creating classes, you should avoid using a constructor, and rely on the con
 ### Do
 
 ```typescript
-import { inject } from '@trackit/di-container';
+import { inject } from '@trackit.io/di-container';
 import { RecipeRepositoryToken } from '../core/ports/RecipeRepository';
 
 class RecipeService {
@@ -219,7 +219,7 @@ class RecipeService {
 When registering external dependencies that need constructor injection, you can use the `inject` function directly in a `useValue` or `useFactory` provider:
 
 ```typescript
-import { register, inject, createInjectionToken } from '@trackit/di-container';
+import { register, inject, createInjectionToken } from '@trackit.io/di-container';
 
 register(DynamoDBConfigToken, { useValue: dynamoDbConfig });
 register(StorageAdapterToken, {
