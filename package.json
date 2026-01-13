@@ -1,5 +1,5 @@
 {
-  "name": "@trackit.io/di-container",
+  "name": "@trackit/di-container",
   "version": "1.0.0",
   "description": "A typesafe dependency injection container implemented as a wrapper around Tsyringe, designed for ease of use and better control over your application's dependencies.",
   "main": "dist/index.js",
