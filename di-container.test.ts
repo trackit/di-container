@@ -3,7 +3,7 @@ import { beforeEach } from '@jest/globals';
 import { register } from './register';
 import { inject } from './inject';
 import { reset } from './reset';
-import { createInjectionToken } from './DIToken';
+import { createInjectionToken } from "./Token";
 
 type NumberGetter = {
   getNumber: () => number;
