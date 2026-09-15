@@ -1,19 +1,25 @@
-import 'reflect-metadata';
 import { beforeEach } from '@jest/globals';
-import { register } from '../src/register';
-import { inject } from '../src/inject';
-import { reset } from '../src/reset';
-import { createInjectionToken } from "../src/Token";
+import {
+  createInjectionToken,
+  inject,
+  register,
+  reset,
+  Token,
+} from '../src';
 
 type NumberGetter = {
   getNumber: () => number;
 };
 
-const NumberGetterToken = createInjectionToken<NumberGetter>('NumberGetterToken');
-
 class OneGetter implements NumberGetter {
   public getNumber(): number {
     return 1;
+  }
+}
+
+class TwoGetter implements NumberGetter {
+  public getNumber(): number {
+    return 2;
   }
 }
 
@@ -22,8 +28,29 @@ describe('di-container', () => {
     reset();
   });
 
+  describe('createInjectionToken', () => {
+    it('returns a Token with a unique symbol even when names match', () => {
+      const first = createInjectionToken<NumberGetter>('NumberGetter');
+      const second = createInjectionToken<NumberGetter>('NumberGetter');
+
+      expect(first).toBeInstanceOf(Token);
+      expect(first.symbol).not.toBe(second.symbol);
+    });
+
+    it('stores an optional default provider on the token', () => {
+      const token = createInjectionToken<NumberGetter>('NumberGetter', {
+        useClass: OneGetter,
+      });
+
+      expect(token.defaultProvider).toEqual({ useClass: OneGetter });
+    });
+  });
+
   describe('register', () => {
     describe('basic usage', () => {
+      const NumberGetterToken =
+        createInjectionToken<NumberGetter>('NumberGetterToken');
+
       it('should register a dependency through use value', () => {
         register(NumberGetterToken, { useValue: new OneGetter() });
 
@@ -49,27 +76,124 @@ describe('di-container', () => {
       });
     });
 
-    describe('internal dependencies', () => {
-      class NumberLogger {
-        private numberGetter = inject(NumberGetterToken);
+    describe('identity and caching', () => {
+      it('returns the same instance for useValue', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+        const instance = new OneGetter();
 
-        public loggedNumber?: number;
+        register(NumberGetterToken, { useValue: instance });
 
-        public logNumber(): void {
-          this.loggedNumber = this.numberGetter.getNumber();
+        expect(inject(NumberGetterToken)).toBe(instance);
+        expect(inject(NumberGetterToken)).toBe(instance);
+      });
+
+      it('instantiates useClass once (singleton)', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        register(NumberGetterToken, { useClass: OneGetter });
+
+        expect(inject(NumberGetterToken)).toBe(inject(NumberGetterToken));
+      });
+
+      it('does not call useClass until first inject', () => {
+        let constructed = 0;
+
+        class CountingGetter implements NumberGetter {
+          constructor() {
+            constructed += 1;
+          }
+
+          public getNumber(): number {
+            return constructed;
+          }
         }
-      }
 
-      it('should allow injection of dependencies', () => {
+        const token = createInjectionToken<NumberGetter>('CountingGetter');
+        register(token, { useClass: CountingGetter });
+
+        expect(constructed).toBe(0);
+        inject(token);
+        inject(token);
+        expect(constructed).toBe(1);
+      });
+
+      it('calls useFactory once and caches the result', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+        let calls = 0;
+
+        register(NumberGetterToken, {
+          useFactory: () => {
+            calls += 1;
+            return new OneGetter();
+          },
+        });
+
+        expect(calls).toBe(0);
+        const first = inject(NumberGetterToken);
+        const second = inject(NumberGetterToken);
+
+        expect(calls).toBe(1);
+        expect(first).toBe(second);
+      });
+    });
+
+    describe('falsy useValue', () => {
+      it.each([0, false, ''] as const)(
+        'registers useValue %p',
+        (value) => {
+          const token = createInjectionToken<typeof value>('Falsy');
+          register(token, { useValue: value });
+          expect(inject(token)).toBe(value);
+        }
+      );
+    });
+
+    describe('internal dependencies', () => {
+      it('should allow injection of dependencies via field initializers', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        class NumberLogger {
+          private numberGetter = inject(NumberGetterToken);
+
+          public loggedNumber?: number;
+
+          public logNumber(): void {
+            this.loggedNumber = this.numberGetter.getNumber();
+          }
+        }
+
         register(NumberGetterToken, { useValue: new OneGetter() });
 
         const logger = new NumberLogger();
-
         logger.logNumber();
 
-        expect(logger).toBeDefined();
         expect(logger).toBeInstanceOf(NumberLogger);
         expect(logger).toHaveProperty('loggedNumber', 1);
+      });
+
+      it('resolves field inject when the class is created through useClass', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        class NumberLogger {
+          private numberGetter = inject(NumberGetterToken);
+
+          public logNumber(): number {
+            return this.numberGetter.getNumber();
+          }
+        }
+
+        const NumberLoggerToken =
+          createInjectionToken<NumberLogger>('NumberLogger');
+
+        register(NumberGetterToken, { useClass: OneGetter });
+        register(NumberLoggerToken, { useClass: NumberLogger });
+
+        expect(inject(NumberLoggerToken).logNumber()).toBe(1);
       });
     });
 
@@ -86,46 +210,227 @@ describe('di-container', () => {
         }
       }
 
-      const ExternalNumberLoggerToken = createInjectionToken<ExternalNumberLogger>(ExternalNumberLogger.name);
-
       it('should register an external dependency through use factory with dependencies', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+        const ExternalNumberLoggerToken =
+          createInjectionToken<ExternalNumberLogger>(
+            ExternalNumberLogger.name
+          );
+
         register(NumberGetterToken, { useValue: new OneGetter() });
-        register(ExternalNumberLoggerToken, { useFactory: () => new ExternalNumberLogger(inject(NumberGetterToken)) });
+        register(ExternalNumberLoggerToken, {
+          useFactory: () =>
+            new ExternalNumberLogger(inject(NumberGetterToken)),
+        });
 
         const logger = inject<ExternalNumberLogger>(ExternalNumberLoggerToken);
-
         logger.logNumber();
 
-        expect(logger).toBeDefined();
         expect(logger).toBeInstanceOf(ExternalNumberLogger);
         expect(logger).toHaveProperty('loggedNumber', 1);
       });
 
       it('should register an external dependency through use value with dependencies', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+        const ExternalNumberLoggerToken =
+          createInjectionToken<ExternalNumberLogger>(
+            ExternalNumberLogger.name
+          );
+
         register(NumberGetterToken, { useValue: new OneGetter() });
-        register(ExternalNumberLoggerToken, { useValue: new ExternalNumberLogger(inject(NumberGetterToken)) });
+        register(ExternalNumberLoggerToken, {
+          useValue: new ExternalNumberLogger(inject(NumberGetterToken)),
+        });
 
         const logger = inject<ExternalNumberLogger>(ExternalNumberLoggerToken);
-
         logger.logNumber();
 
-        expect(logger).toBeDefined();
         expect(logger).toBeInstanceOf(ExternalNumberLogger);
         expect(logger).toHaveProperty('loggedNumber', 1);
       });
+
+      it('allows a factory to inject a dependency registered after the factory', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+        const ExternalNumberLoggerToken =
+          createInjectionToken<ExternalNumberLogger>('ExternalNumberLogger');
+
+        register(ExternalNumberLoggerToken, {
+          useFactory: () =>
+            new ExternalNumberLogger(inject(NumberGetterToken)),
+        });
+        register(NumberGetterToken, { useClass: OneGetter });
+
+        const logger = inject(ExternalNumberLoggerToken);
+        logger.logNumber();
+
+        expect(logger.loggedNumber).toBe(1);
+      });
+
+      it('fails when useValue injects a dependency that is not registered yet', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        expect(() =>
+          register(
+            createInjectionToken<ExternalNumberLogger>('ExternalNumberLogger'),
+            {
+              useValue: new ExternalNumberLogger(inject(NumberGetterToken)),
+            }
+          )
+        ).toThrowError();
+      });
     });
 
-    describe('no override', () => {
+    describe('independent tokens', () => {
+      it('keeps tokens with the same name independent', () => {
+        const first = createInjectionToken<NumberGetter>('NumberGetter');
+        const second = createInjectionToken<NumberGetter>('NumberGetter');
+
+        register(first, { useClass: OneGetter });
+        register(second, { useClass: TwoGetter });
+
+        expect(inject(first).getNumber()).toBe(1);
+        expect(inject(second).getNumber()).toBe(2);
+      });
+    });
+
+    describe('errors', () => {
       it('should throw an error when registering a dependency twice', () => {
+        const NumberGetterToken =
+          createInjectionToken<NumberGetter>('NumberGetterToken');
+
         register(NumberGetterToken, { useValue: new OneGetter() });
 
-        expect(() => register(NumberGetterToken, { useValue: new OneGetter() })).toThrowError();
+        expect(() =>
+          register(NumberGetterToken, { useValue: new OneGetter() })
+        ).toThrowError(
+          'Token Symbol(NumberGetterToken) is already registered.'
+        );
+      });
+
+      it('does not cache a useClass instance when construction throws', () => {
+        let attempts = 0;
+
+        class Exploding {
+          constructor() {
+            attempts += 1;
+            throw new Error('boom');
+          }
+        }
+
+        const token = createInjectionToken<Exploding>('Exploding');
+        register(token, { useClass: Exploding });
+
+        expect(() => inject(token)).toThrowError('boom');
+        expect(() => inject(token)).toThrowError('boom');
+        expect(attempts).toBe(2);
+      });
+
+      it('does not cache a factory result when the factory throws', () => {
+        let attempts = 0;
+        const token = createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        register(token, {
+          useFactory: () => {
+            attempts += 1;
+            throw new Error('factory failed');
+          },
+        });
+
+        expect(() => inject(token)).toThrowError('factory failed');
+        expect(() => inject(token)).toThrowError('factory failed');
+        expect(attempts).toBe(2);
+      });
+    });
+  });
+
+  describe('inject', () => {
+    it('throws when the token is not registered and has no default provider', () => {
+      const token = createInjectionToken<NumberGetter>('Missing');
+
+      expect(() => inject(token)).toThrowError();
+    });
+
+    describe('defaultProvider', () => {
+      it('auto-registers a default useClass on first inject', () => {
+        const token = createInjectionToken<NumberGetter>('NumberGetter', {
+          useClass: OneGetter,
+        });
+
+        const first = inject(token);
+        const second = inject(token);
+
+        expect(first).toBeInstanceOf(OneGetter);
+        expect(first).toBe(second);
+      });
+
+      it('auto-registers a default useValue on first inject', () => {
+        const instance = new OneGetter();
+        const token = createInjectionToken<NumberGetter>('NumberGetter', {
+          useValue: instance,
+        });
+
+        expect(inject(token)).toBe(instance);
+      });
+
+      it('auto-registers a default useFactory on first inject', () => {
+        let calls = 0;
+        const token = createInjectionToken<NumberGetter>('NumberGetter', {
+          useFactory: () => {
+            calls += 1;
+            return new OneGetter();
+          },
+        });
+
+        expect(inject(token)).toBe(inject(token));
+        expect(calls).toBe(1);
+      });
+
+      it('ignores the default provider when the token is already registered', () => {
+        const token = createInjectionToken<NumberGetter>('NumberGetter', {
+          useClass: OneGetter,
+        });
+
+        register(token, { useClass: TwoGetter });
+
+        expect(inject(token)).toBeInstanceOf(TwoGetter);
+      });
+
+      it('throws on a second explicit register after default auto-registration', () => {
+        const token = createInjectionToken<NumberGetter>('NumberGetter', {
+          useClass: OneGetter,
+        });
+
+        inject(token);
+
+        expect(() => register(token, { useClass: TwoGetter })).toThrowError(
+          'Token Symbol(NumberGetter) is already registered.'
+        );
+      });
+
+      it('uses the default provider again after reset', () => {
+        const token = createInjectionToken<NumberGetter>('NumberGetter', {
+          useClass: OneGetter,
+        });
+
+        const beforeReset = inject(token);
+        reset();
+        const afterReset = inject(token);
+
+        expect(afterReset).toBeInstanceOf(OneGetter);
+        expect(afterReset).not.toBe(beforeReset);
       });
     });
   });
 
   describe('reset', () => {
     it('should reset the container', () => {
+      const NumberGetterToken =
+        createInjectionToken<NumberGetter>('NumberGetterToken');
+
       register(NumberGetterToken, { useValue: new OneGetter() });
 
       const getter = inject<NumberGetter>(NumberGetterToken);
@@ -134,6 +439,20 @@ describe('di-container', () => {
 
       expect(() => inject<NumberGetter>(NumberGetterToken)).toThrowError();
       expect(getter.getNumber()).toBe(1);
+    });
+
+    it('creates a new singleton after reset for useClass', () => {
+      const NumberGetterToken =
+        createInjectionToken<NumberGetter>('NumberGetterToken');
+
+      register(NumberGetterToken, { useClass: OneGetter });
+      const before = inject(NumberGetterToken);
+
+      reset();
+      register(NumberGetterToken, { useClass: OneGetter });
+      const after = inject(NumberGetterToken);
+
+      expect(after).not.toBe(before);
     });
   });
 });
