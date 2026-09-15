@@ -3,7 +3,7 @@
     "target": "ESNext",
     "module": "CommonJS",
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
@@ -14,9 +14,6 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "*.ts"
-  ],
-  "exclude": ["node_modules", "dist", "*.test.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
-

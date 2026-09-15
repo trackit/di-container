@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "dev": "ts-node index.ts",
+    "dev": "ts-node src/index.ts",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build"
   },
@@ -51,7 +51,7 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
-      "**/*.test.ts"
+      "<rootDir>/tests/**/*.test.ts"
     ],
     "transform": {
       "^.+\\.ts$": "ts-jest"

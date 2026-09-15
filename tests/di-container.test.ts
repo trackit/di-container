@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { beforeEach } from '@jest/globals';
-import { register } from './register';
-import { inject } from './inject';
-import { reset } from './reset';
-import { createInjectionToken } from "./Token";
+import { register } from '../src/register';
+import { inject } from '../src/inject';
+import { reset } from '../src/reset';
+import { createInjectionToken } from "../src/Token";
 
 type NumberGetter = {
   getNumber: () => number;
