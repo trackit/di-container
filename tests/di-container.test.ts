@@ -1,5 +1,7 @@
 import { beforeEach } from '@jest/globals';
 import {
+  Container,
+  container,
   createInjectionToken,
   inject,
   register,
@@ -138,10 +140,26 @@ describe('di-container', () => {
         expect(calls).toBe(1);
         expect(first).toBe(second);
       });
+
+      it('caches a factory result of undefined', () => {
+        const token = createInjectionToken<number | undefined>('MaybeNumber');
+        let calls = 0;
+
+        register(token, {
+          useFactory: () => {
+            calls += 1;
+            return undefined;
+          },
+        });
+
+        expect(inject(token)).toBeUndefined();
+        expect(inject(token)).toBeUndefined();
+        expect(calls).toBe(1);
+      });
     });
 
     describe('falsy useValue', () => {
-      it.each([0, false, ''] as const)(
+      it.each([0, false, '', null] as const)(
         'registers useValue %p',
         (value) => {
           const token = createInjectionToken<typeof value>('Falsy');
@@ -149,6 +167,20 @@ describe('di-container', () => {
           expect(inject(token)).toBe(value);
         }
       );
+    });
+
+    describe('provider precedence', () => {
+      it('treats a provider with useClass as a class provider even if useValue is also present', () => {
+        const token = createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        register(token, {
+          useClass: OneGetter,
+          useValue: new TwoGetter(),
+        } as { useClass: new () => NumberGetter; useValue: NumberGetter });
+
+        expect(inject(token)).toBeInstanceOf(OneGetter);
+        expect(inject(token).getNumber()).toBe(1);
+      });
     });
 
     describe('internal dependencies', () => {
@@ -280,7 +312,7 @@ describe('di-container', () => {
               useValue: new ExternalNumberLogger(inject(NumberGetterToken)),
             }
           )
-        ).toThrowError();
+        ).toThrowError('Token Symbol(NumberGetterToken) is not registered.');
       });
     });
 
@@ -308,6 +340,14 @@ describe('di-container', () => {
           register(NumberGetterToken, { useValue: new OneGetter() })
         ).toThrowError(
           'Token Symbol(NumberGetterToken) is already registered.'
+        );
+      });
+
+      it('throws when the provider is not a class, value, or factory', () => {
+        const token = createInjectionToken<NumberGetter>('NumberGetterToken');
+
+        expect(() => register(token, {} as never)).toThrowError(
+          'Invalid provider for token Symbol(NumberGetterToken).'
         );
       });
 
@@ -344,6 +384,28 @@ describe('di-container', () => {
         expect(() => inject(token)).toThrowError('factory failed');
         expect(attempts).toBe(2);
       });
+
+      it('throws when a circular useClass dependency is detected', () => {
+        const AlphaToken = createInjectionToken<{ name: string }>('Alpha');
+        const BetaToken = createInjectionToken<{ name: string }>('Beta');
+
+        class Alpha {
+          public readonly name = 'alpha';
+          public readonly beta = inject(BetaToken);
+        }
+
+        class Beta {
+          public readonly name = 'beta';
+          public readonly alpha = inject(AlphaToken);
+        }
+
+        register(AlphaToken, { useClass: Alpha });
+        register(BetaToken, { useClass: Beta });
+
+        expect(() => inject(AlphaToken)).toThrowError(
+          'Circular dependency detected for token Symbol(Alpha).'
+        );
+      });
     });
   });
 
@@ -351,7 +413,9 @@ describe('di-container', () => {
     it('throws when the token is not registered and has no default provider', () => {
       const token = createInjectionToken<NumberGetter>('Missing');
 
-      expect(() => inject(token)).toThrowError();
+      expect(() => inject(token)).toThrowError(
+        'Token Symbol(Missing) is not registered.'
+      );
     });
 
     describe('defaultProvider', () => {
@@ -437,7 +501,9 @@ describe('di-container', () => {
 
       reset();
 
-      expect(() => inject<NumberGetter>(NumberGetterToken)).toThrowError();
+      expect(() => inject<NumberGetter>(NumberGetterToken)).toThrowError(
+        'Token Symbol(NumberGetterToken) is not registered.'
+      );
       expect(getter.getNumber()).toBe(1);
     });
 
@@ -453,6 +519,42 @@ describe('di-container', () => {
       const after = inject(NumberGetterToken);
 
       expect(after).not.toBe(before);
+    });
+  });
+
+  describe('global container facades', () => {
+    it('exposes the same register, inject, and reset as the global container', () => {
+      expect(register).toBe(container.register);
+      expect(inject).toBe(container.inject);
+      expect(reset).toBe(container.reset);
+    });
+  });
+
+  describe('isolated Container instances', () => {
+    it('does not share registrations with the global container', () => {
+      const token = createInjectionToken<NumberGetter>('NumberGetter');
+      const isolated = new Container();
+
+      isolated.register(token, { useClass: OneGetter });
+      register(token, { useClass: TwoGetter });
+
+      expect(isolated.inject(token)).toBeInstanceOf(OneGetter);
+      expect(inject(token)).toBeInstanceOf(TwoGetter);
+    });
+
+    it('reset on one container does not clear another', () => {
+      const token = createInjectionToken<NumberGetter>('NumberGetter');
+      const isolated = new Container();
+
+      isolated.register(token, { useClass: OneGetter });
+      register(token, { useClass: TwoGetter });
+
+      isolated.reset();
+
+      expect(() => isolated.inject(token)).toThrowError(
+        'Token Symbol(NumberGetter) is not registered.'
+      );
+      expect(inject(token)).toBeInstanceOf(TwoGetter);
     });
   });
 });

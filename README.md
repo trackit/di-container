@@ -1,6 +1,8 @@
 # @trackit.io/di-container
 
-A typesafe dependency injection container implemented as a wrapper around Tsyringe, designed for ease of use and better control over your application's dependencies.
+A typesafe dependency injection container for TypeScript, designed for ease of use and better control over your application's dependencies.
+
+The package exports a `Container` class, a shared global `container`, and `register` / `inject` / `reset` facades bound to that global instance.
 
 ## Installation
 
@@ -55,6 +57,8 @@ register(DynamoDBClientToken, { useFactory: () => new DynamoDBClient({ region: '
 
 Please note, if a dependency is re-registered, it will throw an exception. Dependencies are not allowed to be overridden.
 
+`useClass` and `useFactory` create a singleton: the constructor or factory runs on first `inject`, and the same instance is returned afterwards.
+
 ### Retrieving a dependency
 
 Once the dependency is registered, you can retrieve it using the `inject` function:
@@ -75,6 +79,20 @@ You can clear the container of all registered dependencies using the `reset` fun
 import { reset } from '@trackit.io/di-container';
 
 reset();
+```
+
+### Isolated containers
+
+`register`, `inject`, and `reset` always target the shared global container. Create a separate `Container` when you need isolated registrations (for example in tests that must not touch the global graph).
+
+```typescript
+import { Container, createInjectionToken } from '@trackit.io/di-container';
+
+const NumberGetterToken = createInjectionToken<NumberGetter>('NumberGetterToken');
+const isolated = new Container();
+
+isolated.register(NumberGetterToken, { useClass: OneGetter });
+const getter = isolated.inject(NumberGetterToken);
 ```
 
 ### CompositionRoot pattern
@@ -180,7 +198,7 @@ When you only need to import types (for type annotations), use `import type` for
 
 ```typescript
 import { inject, register, createInjectionToken } from '@trackit.io/di-container';
-import type { Token, Provider, Factory } from '@trackit.io/di-container';
+import type { Token, Provider, Factory, Container } from '@trackit.io/di-container';
 ```
 
 ## Building classes
@@ -229,6 +247,16 @@ register(StorageAdapterToken, {
   }),
 });
 ```
+
+`useValue` evaluates immediately, so injected dependencies must already be registered. `useFactory` is lazy: dependencies only need to exist by the time of the first `inject`.
+
+### Default providers on tokens
+
+If a token is created with a default provider, `inject` registers that provider automatically when the token has not been registered yet. An explicit `register` still cannot override a token that was already auto-registered.
+
+### Circular dependencies
+
+If `useClass` (or `useFactory`) resolution re-enters the same token before it has finished constructing, the container throws. Prefer breaking the cycle with a factory or by injecting after construction.
 
 ## License
 

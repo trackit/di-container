@@ -1,4 +1,3 @@
-import { InjectionToken } from "tsyringe";
 import type { Provider } from "./Provider";
 
 /**
@@ -13,7 +12,7 @@ import type { Provider } from "./Provider";
  */
 export class Token<T> {
   /** The underlying symbol used for dependency resolution */
-  public symbol: InjectionToken<T>;
+  public symbol: symbol;
 
   /** Optional default provider used when injecting an unregistered token */
   public defaultProvider?: Provider<T>;
@@ -42,7 +41,7 @@ export class Token<T> {
  * const LoggerToken = createInjectionToken<Logger>('Logger', {
  *   useClass: ConsoleLogger
  * });
- * 
+ *
  * // With a default value provider
  * const ConfigToken = createInjectionToken<Config>('Config', {
  *   useValue: { apiUrl: 'https://api.example.com' }
