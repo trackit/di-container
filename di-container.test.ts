@@ -223,7 +223,92 @@ describe('di-container', () => {
       it('should throw an error when registering a dependency twice', () => {
         register(NumberGetterToken, { useValue: new OneGetter() });
 
-        expect(() => register(NumberGetterToken, { useValue: new OneGetter() })).toThrowError();
+        expect(() => register(NumberGetterToken, { useValue: new OneGetter() })).toThrowError(
+          'Token NumberGetterToken is already registered.'
+        );
+      });
+    });
+
+    describe('lazy resolution', () => {
+      it('should resolve a factory whose dependency is registered later', () => {
+        const DoubledToken = createInjectionToken<number>('DoubledToken');
+
+        register(DoubledToken, { useFactory: () => inject(NumberGetterToken).getNumber() * 2 });
+        register(NumberGetterToken, { useValue: new OneGetter() });
+
+        expect(inject(DoubledToken)).toBe(2);
+      });
+
+      it('should resolve a use class whose properties inject other tokens', () => {
+        class NumberLogger {
+          private numberGetter = inject(NumberGetterToken);
+
+          public logNumber(): number {
+            return this.numberGetter.getNumber();
+          }
+        }
+
+        const NumberLoggerToken = createInjectionToken<NumberLogger>('NumberLoggerToken');
+
+        register(NumberLoggerToken, { useClass: NumberLogger });
+        register(NumberGetterToken, { useValue: new OneGetter() });
+
+        expect(inject(NumberLoggerToken).logNumber()).toBe(1);
+      });
+
+      it('should retry a factory that threw on a previous injection', () => {
+        let attempts = 0;
+
+        register(NumberGetterToken, {
+          useFactory: () => {
+            attempts++;
+            if (attempts === 1) {
+              throw new Error('not ready');
+            }
+            return new OneGetter();
+          },
+        });
+
+        expect(() => inject(NumberGetterToken)).toThrowError('not ready');
+        expect(inject(NumberGetterToken).getNumber()).toBe(1);
+        expect(attempts).toBe(2);
+      });
+
+      it('should throw when dependencies are circular', () => {
+        const FirstToken = createInjectionToken<number>('FirstToken');
+        const SecondToken = createInjectionToken<number>('SecondToken');
+
+        register(FirstToken, { useFactory: () => inject(SecondToken) });
+        register(SecondToken, { useFactory: () => inject(FirstToken) });
+
+        expect(() => inject(FirstToken)).toThrowError();
+      });
+    });
+
+    describe('values', () => {
+      it('should resolve falsy values', () => {
+        const ZeroToken = createInjectionToken<number>('ZeroToken');
+        const EmptyToken = createInjectionToken<string>('EmptyToken');
+        const FalseToken = createInjectionToken<boolean>('FalseToken');
+        const NullToken = createInjectionToken<null>('NullToken');
+
+        register(ZeroToken, { useValue: 0 });
+        register(EmptyToken, { useValue: '' });
+        register(FalseToken, { useValue: false });
+        register(NullToken, { useValue: null });
+
+        expect(inject(ZeroToken)).toBe(0);
+        expect(inject(EmptyToken)).toBe('');
+        expect(inject(FalseToken)).toBe(false);
+        expect(inject(NullToken)).toBeNull();
+      });
+
+      it('should reject an undefined value as an invalid provider', () => {
+        const UndefinedToken = createInjectionToken<undefined>('UndefinedToken');
+
+        register(UndefinedToken, { useValue: undefined });
+
+        expect(() => inject(UndefinedToken)).toThrowError('Invalid provider');
       });
     });
   });
@@ -236,8 +321,41 @@ describe('di-container', () => {
 
       reset();
 
-      expect(() => inject<NumberGetter>(NumberGetterToken)).toThrowError();
+      expect(() => inject<NumberGetter>(NumberGetterToken)).toThrowError(
+        'Attempted to resolve unregistered token NumberGetterToken.'
+      );
       expect(getter.getNumber()).toBe(1);
+    });
+
+    it('should allow registering a token again after reset', () => {
+      register(NumberGetterToken, { useValue: new OneGetter() });
+
+      reset();
+      register(NumberGetterToken, { useValue: { getNumber: () => 2 } });
+
+      expect(inject(NumberGetterToken).getNumber()).toBe(2);
+    });
+
+    it('should re-register a default provider on the next injection after reset', () => {
+      let constructed = 0;
+
+      class CountingGetter implements NumberGetter {
+        constructor() {
+          constructed++;
+        }
+
+        public getNumber(): number {
+          return 1;
+        }
+      }
+
+      const DefaultedToken = createInjectionToken<NumberGetter>('DefaultedToken', { useClass: CountingGetter });
+
+      inject(DefaultedToken);
+      reset();
+      inject(DefaultedToken);
+
+      expect(constructed).toBe(2);
     });
   });
 });
