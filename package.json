@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit -p .",
     "test": "jest",
     "dev": "ts-node index.ts",
     "clean": "rm -rf dist",
@@ -37,7 +38,7 @@
   },
   "homepage": "https://github.com/trackit/di-container#readme",
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
