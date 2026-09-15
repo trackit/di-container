@@ -1,7 +1,7 @@
 {
   "name": "@trackit.io/di-container",
   "version": "1.0.0",
-  "description": "A typesafe dependency injection container implemented as a wrapper around Tsyringe, designed for ease of use and better control over your application's dependencies.",
+  "description": "A tiny, typesafe, zero-dependency dependency injection container built around typed tokens, designed for ease of use and better control over your application's dependencies.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -21,7 +21,6 @@
     "inversion-of-control",
     "typescript",
     "container",
-    "tsyringe",
     "typesafe"
   ],
   "author": "Trackit.io",
@@ -56,9 +55,5 @@
     "transform": {
       "^.+\\.ts$": "ts-jest"
     }
-  },
-  "dependencies": {
-    "reflect-metadata": "^0.2.2",
-    "tsyringe": "^4.10.0"
   }
 }

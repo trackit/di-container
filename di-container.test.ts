@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { beforeEach } from '@jest/globals';
 import { register } from './register';
 import { inject } from './inject';

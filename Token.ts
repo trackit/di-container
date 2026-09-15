@@ -1,8 +1,10 @@
-import { InjectionToken } from "tsyringe";
 import type { Provider } from "./Provider";
 
 /**
  * A typed injection token used to register and retrieve dependencies from the container.
+ *
+ * Each token instance is a unique identity: the container uses the token object
+ * itself as the lookup key, so two tokens with the same name are still distinct.
  *
  * @template T - The type of the dependency this token represents
  *
@@ -12,15 +14,26 @@ import type { Provider } from "./Provider";
  * ```
  */
 export class Token<T> {
-  /** The underlying symbol used for dependency resolution */
-  public symbol: InjectionToken<T>;
+  /** Human-readable name, used in error messages and for debugging */
+  public readonly name: string;
 
   /** Optional default provider used when injecting an unregistered token */
   public defaultProvider?: Provider<T>;
 
+  /**
+   * Phantom field that ties the generic parameter to the instance type.
+   * Never assigned at runtime; it only exists so `Token<A>` and `Token<B>`
+   * are not structurally interchangeable.
+   */
+  declare private readonly __type?: T;
+
   constructor(name: string, defaultProvider?: Provider<T>) {
-    this.symbol = Symbol(name);
+    this.name = name;
     this.defaultProvider = defaultProvider;
+  }
+
+  public toString(): string {
+    return `Token(${this.name})`;
   }
 }
 
@@ -42,7 +55,7 @@ export class Token<T> {
  * const LoggerToken = createInjectionToken<Logger>('Logger', {
  *   useClass: ConsoleLogger
  * });
- * 
+ *
  * // With a default value provider
  * const ConfigToken = createInjectionToken<Config>('Config', {
  *   useValue: { apiUrl: 'https://api.example.com' }
