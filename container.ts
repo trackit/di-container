@@ -18,6 +18,12 @@ type Entry<T> = {
  */
 const registry = new Map<Token<unknown>, Entry<unknown>>();
 
+/**
+ * Tokens currently being instantiated, in resolution order.
+ * Used to detect circular dependencies between providers.
+ */
+const resolving: Token<unknown>[] = [];
+
 export const has = <T>(token: Token<T>): boolean => registry.has(token);
 
 export const set = <T>(token: Token<T>, provider: Provider<T>): void => {
@@ -26,6 +32,7 @@ export const set = <T>(token: Token<T>, provider: Provider<T>): void => {
 
 export const clear = (): void => {
   registry.clear();
+  resolving.length = 0;
 };
 
 /**
@@ -42,8 +49,18 @@ export const resolve = <T>(token: Token<T>): T => {
   }
 
   if (!entry.resolved) {
-    entry.instance = instantiate(entry.provider);
-    entry.resolved = true;
+    if (resolving.includes(token)) {
+      const chain = [...resolving, token].map((t) => t.name).join(" -> ");
+      throw new Error(`Circular dependency detected: ${chain}.`);
+    }
+
+    resolving.push(token);
+    try {
+      entry.instance = instantiate(entry.provider);
+      entry.resolved = true;
+    } finally {
+      resolving.pop();
+    }
   }
 
   return entry.instance as T;

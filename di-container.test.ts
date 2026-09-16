@@ -281,7 +281,53 @@ describe('di-container', () => {
         register(FirstToken, { useFactory: () => inject(SecondToken) });
         register(SecondToken, { useFactory: () => inject(FirstToken) });
 
-        expect(() => inject(FirstToken)).toThrowError();
+        expect(() => inject(FirstToken)).toThrowError(
+          'Circular dependency detected: FirstToken -> SecondToken -> FirstToken.'
+        );
+      });
+
+      it('should throw when a use class depends on itself through another token', () => {
+        class SelfReferencingGetter implements NumberGetter {
+          private other = inject(NumberGetterToken);
+
+          public getNumber(): number {
+            return this.other.getNumber();
+          }
+        }
+
+        register(NumberGetterToken, { useClass: SelfReferencingGetter });
+
+        expect(() => inject(NumberGetterToken)).toThrowError(
+          'Circular dependency detected: NumberGetterToken -> NumberGetterToken.'
+        );
+      });
+
+      it('should recover after a circular dependency error', () => {
+        const FirstToken = createInjectionToken<number>('FirstToken');
+        const SecondToken = createInjectionToken<number>('SecondToken');
+
+        register(FirstToken, { useFactory: () => inject(SecondToken) });
+        register(SecondToken, { useFactory: () => inject(FirstToken) });
+
+        expect(() => inject(FirstToken)).toThrowError('Circular dependency detected');
+
+        reset();
+        register(FirstToken, { useValue: 1 });
+
+        expect(inject(FirstToken)).toBe(1);
+      });
+
+      it('should not report a cycle for a diamond dependency', () => {
+        const LeftToken = createInjectionToken<number>('LeftToken');
+        const RightToken = createInjectionToken<number>('RightToken');
+        const TopToken = createInjectionToken<number>('TopToken');
+
+        register(NumberGetterToken, { useValue: new OneGetter() });
+        register(LeftToken, { useFactory: () => inject(NumberGetterToken).getNumber() });
+        register(RightToken, { useFactory: () => inject(NumberGetterToken).getNumber() + 1 });
+        register(TopToken, { useFactory: () => inject(LeftToken) + inject(RightToken) });
+
+        expect(inject(TopToken)).toBe(3);
       });
     });
 
