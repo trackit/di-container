@@ -1,5 +1,3 @@
-import 'reflect-metadata';
-
 export { Token, createInjectionToken } from "./Token";
 export { inject } from "./inject";
 export { reset } from "./reset";
