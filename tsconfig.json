@@ -6,8 +6,6 @@
     "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "declaration": true,
     "sourceMap": true,
     "moduleResolution": "node",
@@ -17,6 +15,9 @@
   "include": [
     "*.ts"
   ],
-  "exclude": ["node_modules", "dist", "*.test.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "*.test.ts"
+  ]
 }
-

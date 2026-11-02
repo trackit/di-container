@@ -1,10 +1,5 @@
-import { container, instanceCachingFactory, Lifecycle } from 'tsyringe';
 import { Token } from "./Token";
-import {
-  isClassProvider,
-  isFactoryProvider,
-  isValueProvider,
-} from "./Provider";
+import * as container from "./container";
 import type { Provider } from "./Provider";
 
 /**
@@ -12,9 +7,9 @@ import type { Provider } from "./Provider";
  *
  * Dependencies cannot be overridden - attempting to register the same token twice will throw an error.
  *
- * - `useClass`: Registers a class as a singleton
+ * - `useClass`: Registers a class, instantiated once on first injection
  * - `useValue`: Registers an existing instance
- * - `useFactory`: Registers a factory function (cached after first call)
+ * - `useFactory`: Registers a factory function, called once on first injection
  *
  * @template T - The type of the dependency
  * @param token - The injection token for the dependency
@@ -39,25 +34,9 @@ export const register = <T = any>(
   token: Token<T>,
   provider: Provider<T>
 ): void => {
-  if (container.isRegistered(token.symbol)) {
-    throw new Error(`Token ${token.symbol.toString()} is already registered.`);
+  if (container.has(token)) {
+    throw new Error(`Token ${token.name} is already registered.`);
   }
 
-  if (isClassProvider(provider)) {
-    container.register(token.symbol, provider, {
-      lifecycle: Lifecycle.Singleton,
-    });
-    return;
-  }
-
-  if (isValueProvider(provider)) {
-    container.register(token.symbol, provider);
-    return;
-  }
-
-  if (isFactoryProvider(provider)) {
-    container.register(token.symbol, {
-      useFactory: instanceCachingFactory(provider.useFactory),
-    });
-  }
+  container.set(token, provider);
 };

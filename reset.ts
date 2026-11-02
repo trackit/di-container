@@ -1,4 +1,4 @@
-import { container } from 'tsyringe';
+import * as container from "./container";
 
 /**
  * Clears all registered dependencies from the container.
@@ -13,5 +13,5 @@ import { container } from 'tsyringe';
  * ```
  */
 export const reset = (): void => {
-  container.reset();
+  container.clear();
 };

@@ -1,6 +1,6 @@
 # @trackit.io/di-container
 
-A typesafe dependency injection container implemented as a wrapper around Tsyringe, designed for ease of use and better control over your application's dependencies.
+A tiny, typesafe, zero-dependency dependency injection container built around typed tokens, designed for ease of use and better control over your application's dependencies.
 
 ## Installation
 
